@@ -211,3 +211,56 @@ int realtime_key(uint16_t key)
     }
     return 0;
 }
+
+/* ---- quick announcements (real time, multiplayer) ----
+   f_0ad5_1569: "Our wise men discover the secret of ..." is a picture or a
+   dialog that waits for a key; in real time it is a short message instead. */
+
+/* 0ad5:16d6: [BP-0x42] = 1 shows the picture */
+static int discovery_box;            /* the next message box is the discovery */
+
+void hook_fast_discovery(void)
+{
+    if (realtime_on()) {
+        WW(SS, (uint16_t)(BP - 0x42), 0);
+        discovery_box = 1;
+    }
+}
+
+/* 0ad5:1996: the announcement is over (the advance is given next) */
+void hook_fast_discovery_end(void)
+{
+    discovery_box = 0;
+}
+
+/* ovl21_0000(-1): the game's message box with the text in DS:C926 (used
+   for many messages; only the discovery is shortened) */
+void ovl21_0000(void)
+{
+    if ((int16_t)FARG(0) != -1 || !discovery_box) {
+        lifted_ovl21_0000();
+        return;
+    }
+    char t[96];
+    int n = 0;
+    for (int i = 0; n < 95 && GB((uint16_t)(0xc926 + i)); i++) {
+        char c = (char)GB((uint16_t)(0xc926 + i));
+        if (c == '\n')
+            c = ' ';
+        if (c != ' ' || (n && t[n - 1] != ' '))
+            t[n++] = c;
+    }
+    t[n] = 0;
+    ovl_msg("%s", t);
+    RET_FAR(0);
+}
+
+/* ovl12_09d6: the historians' report of the greatest civilizations */
+void ovl12_09d6(void)
+{
+    if (!cfg.rankings || mp_in_game()) {
+        RET_FAR(0);
+        return;
+    }
+    lifted_ovl12_09d6();
+}

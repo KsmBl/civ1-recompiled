@@ -40,3 +40,5 @@ root 0237:0239 hook_mp_civ_done
 root 0402:05c5 hook_mp_auto_order
 root 0402:0ced hook_mp_record
 root 0ad5:165f hook_mp_research
+root 0ad5:16d6 hook_fast_discovery
+root 0ad5:1996 hook_fast_discovery_end

@@ -106,6 +106,7 @@ struct config {
     int mouse;              /* 1 = mouse and keyboard */
     int realtime;           /* turns pass on a clock (src/native/realtime.c) */
     int turn_ms;            /* realtime: length of a turn */
+    int rankings;           /* historians' reports (wealthiest, largest ...) */
     char gamedir[1024];
 };
 extern struct config cfg;

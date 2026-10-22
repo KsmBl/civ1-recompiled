@@ -17,7 +17,7 @@
 struct config cfg = {
     .win_w = 1280, .win_h = 800, .fullscreen = 0, .widescreen = 0,
     .scale_filter = 1, .aspect = 1, .integer_scale = 0, .gamedir = "",
-    .autostart = 1, .sound = 2, .mouse = 1, .turn_ms = 3000,
+    .autostart = 1, .sound = 2, .mouse = 1, .turn_ms = 3000, .rankings = 1,
 };
 int verbose;
 static char script_path[1024];
@@ -92,6 +92,7 @@ static void usage(void)
            "  --realtime        turns pass on a clock (see --turnsecs)\n"
            "  --turnsecs S      realtime: seconds per turn (default 3)\n"
            "  --barbarians 0|1  barbarians appear (default 1)\n"
+           "  --rankings 0|1    historians' reports of the greatest civs (default 1)\n"
            "  --square-pixels   do not correct the 320x200 pixel aspect\n"
            "  --nearest         nearest-neighbour scaling (no smoothing)\n"
            "  --integer         integer scale factors only\n"
@@ -137,7 +138,9 @@ static void apply_option(const char *k, const char *v)
             warn("turnsecs must be between 0.25 and 600");
         else
             cfg.turn_ms = (int)(t * 1000);
-    } else if (!strcmp(k, "barbarians"))
+    } else if (!strcmp(k, "rankings"))
+        cfg.rankings = v ? atoi(v) != 0 : 1;
+    else if (!strcmp(k, "barbarians"))
         g_barbarians = v ? atoi(v) != 0 : 1;
     else if (!strcmp(k, "zoom") && v)
         cfg.zoom = atoi(v);
@@ -251,7 +254,7 @@ int main(int argc, char **argv)
                 snprintf(key, sizeof key, "%s", a + 2);
                 static const char *with_value[] = {"res", "gamedir", "script",
                                                    "sound", "zoom", "log", "mapwidth",
-                                                   "turnsecs", "barbarians", NULL};
+                                                   "turnsecs", "barbarians", "rankings", NULL};
                 int takes = 0;
                 for (int k = 0; with_value[k]; k++)
                     if (!strcmp(key, with_value[k]))

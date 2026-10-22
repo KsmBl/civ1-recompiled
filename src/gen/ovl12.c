@@ -1941,7 +1941,7 @@ L_09c3:
     RET_FAR(0); return;
 }
 
-void ovl12_09d6(void)
+void lifted_ovl12_09d6(void)
 {
     /* 09d6: push bp */
     PUSH(BP);

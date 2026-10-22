@@ -4362,6 +4362,7 @@ L_16d1:
     WW(SS, BP - 0x42, 0x0001);
 L_16d6:
     /* 16d6: cmp word ptr [bp - 0x42], 0 */
+    hook_fast_discovery();
     /* 16da: jne 0x16df */
     if ((uint16_t)RW(SS, BP - 0x42) != (uint16_t)0x0000) goto L_16df;
 L_16dc:
@@ -4903,6 +4904,7 @@ L_198a:
     SP += 0x0002;
 L_1996:
     /* 1996: push word ptr [bp + 8] */
+    hook_fast_discovery_end();
     PUSH(RW(SS, BP + 0x8));
     /* 1999: push word ptr [0x19be] */
     PUSH(RW(DS, 0x19be));

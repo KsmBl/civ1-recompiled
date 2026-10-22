@@ -26,6 +26,7 @@ Useful options (all also valid in `civ.cfg` as `name = value`):
 | `--realtime` | turns pass on a clock (see below) |
 | `--turnsecs S` | realtime: seconds per turn (default 3) |
 | `--barbarians 0` | no barbarians: no raids, uprisings or barbarians from huts |
+| `--rankings 0` | no historians' reports (wealthiest, largest ... civilizations); always off in multiplayer |
 | `--sound none\|speaker` | sound driver (AdLib emulation is not implemented yet) |
 | `--setup` | ask the original graphics / sound / mouse questions |
 | `--gamedir DIR` | where the original files are |
@@ -69,7 +70,8 @@ their 320x200 layout and are shown centred.
   unit, **clicking** one of your units makes it the active one (cancelling
   its standing orders).  **[** / **-** slower, **]** / **=** faster, **F12**
   pause.  The bar at the bottom of the status panel shows the turn time.
-  Dialogs, menus and city screens stop the clock.
+  Dialogs, menus and city screens stop the clock.  A discovered advance
+  is announced with a short message instead of the picture and dialog.
 * **Multiplayer over the network** — two PCs on the same network play one
   game in real time.  Choose **Multiplayer** in the start menu: **H** hosts
   a game, **F** searches the network (UDP broadcast) and lists the games

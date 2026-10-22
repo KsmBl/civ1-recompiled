@@ -6,7 +6,7 @@
 #undef JUMP_NEAR
 #define JUMP_NEAR(o) jump_near_ovl(21, (o))
 
-void ovl21_0000(void)
+void lifted_ovl21_0000(void)
 {
     /* 0000: push bp */
     PUSH(BP);
