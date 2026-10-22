@@ -63,7 +63,7 @@ static uint64_t turn_start_us;
 static int turn_ms_mp = 3000;
 static int turn_end;                /* host: sent / peer: received */
 static int in_phase;                /* our own civilization is moving */
-static uint64_t last_idle_us, last_esc_us, last_enter_us;
+static uint64_t last_idle_us, last_esc_us, last_enter_us, last_orders_us;
 static int auto_start;              /* peer: answer the new game questions */
 
 /* peer: orders given this turn */
@@ -302,19 +302,13 @@ static void send_done(void)
     ncmds = 0;
 }
 
-static int done_applied_turn = -1;
-
 /* host: the joining player's orders */
 static void apply_done(const uint8_t *b, uint32_t l)
 {
     if (l < 4)
         return;
     int turn = b[0] | b[1] << 8, nc = b[2] | b[3] << 8;
-    if (turn != (int16_t)GW(0x90f2))
-        return;                     /* late: that turn is over */
     uint32_t n = 4;
-    memset(qlen, 0, sizeof qlen);
-    memset(qpos, 0, sizeof qpos);
     for (int i = 0; i < nc && n + 3 <= l; i++, n += 3) {
         int u = b[n] & 127;
         if (qlen[u] < 16)
@@ -341,12 +335,9 @@ static void apply_done(const uint8_t *b, uint32_t l)
             WB(DS, (uint16_t)(r + 7), b[n + 2]);
         }
     }
-    done_applied_turn = turn;
-    DBG("orders for turn %d: %d keys", turn, nc);
+    if (nc)
+        DBG("orders from turn %d: %d keys", turn, nc);
 }
-
-static uint8_t *pending_done;
-static uint32_t pending_done_len;
 
 static void handle(int type, uint8_t *d, uint32_t l)
 {
@@ -391,12 +382,8 @@ static void handle(int type, uint8_t *d, uint32_t l)
             turn_end = 1;
         break;
     case MSG_DONE:
-        if (state == MP_GAME_HOST) {
-            free(pending_done);
-            pending_done = malloc(l ? l : 1);
-            memcpy(pending_done, d, l);
-            pending_done_len = l;
-        }
+        if (state == MP_GAME_HOST)
+            apply_done(d, l);       /* played back when that civ moves */
         break;
     }
 }
@@ -432,13 +419,16 @@ void native_frame(void)
     }
     if (state == MP_GAME_HOST && turn_no >= 0 && !turn_end &&
         now - turn_start_us >= (uint64_t)turn_ms_mp * 1000) {
-        uint8_t b[2] = {(uint8_t)turn_no, (uint8_t)(turn_no >> 8)};
-        net_send(MSG_TURN_END, b, 2);
         turn_end = 1;
         DBG("host turn %d over", turn_no);
     }
+    /* the joining player's orders go out as they are given */
+    if (state == MP_GAME_PEER && in_phase && now - last_orders_us > 500000) {
+        last_orders_us = now;
+        send_done();
+    }
     /* the clock never stops: close dialogs and screens when the turn is due */
-    if ((state == MP_GAME_HOST || state == MP_GAME_PEER) && in_phase && turn_end &&
+    if ((state == MP_GAME_HOST || state == MP_GAME_PEER) && in_phase && mp_turn_due() &&
         now - last_idle_us > 2500000 && now - last_esc_us > 600000) {
         uint16_t k;
         last_esc_us = now;
@@ -478,7 +468,9 @@ int mp_in_game(void)
 
 int mp_turn_due(void)
 {
-    return turn_end;
+    /* the host's clock; the joining player's turn ends when the host's
+       next turn has begun (its state arrived) */
+    return state == MP_GAME_PEER ? snap_buf != NULL : turn_end;
 }
 
 int mp_progress(void)
@@ -546,8 +538,8 @@ void hook_mp_turn_start(void)
         send_snap();
     } else if (state == MP_GAME_PEER) {
         auto_start = 0;
-        while (!snap_buf && state == MP_GAME_PEER) {
-            snprintf(status_line, sizeof status_line, "Waiting for the host...");
+        while (!snap_buf && state == MP_GAME_PEER) {     /* only when joining */
+            snprintf(status_line, sizeof status_line, "Joining the game...");
             wait_frame();
         }
         status_line[0] = 0;
@@ -567,21 +559,8 @@ void hook_mp_turn_start(void)
 /* 0237:0151, a civilization's part of the turn starts, [BP-6] = civ */
 void hook_mp_civ_start(void)
 {
-    int civ = (int16_t)RW(SS, (uint16_t)(BP - 6));
-    if (state != MP_GAME_HOST || civ != remote_civ)
-        return;
-    uint64_t until = now_us() + 5000000;
-    while (state == MP_GAME_HOST && !pending_done && now_us() < until) {
-        snprintf(status_line, sizeof status_line, "Waiting for %s...", peer_name);
-        wait_frame();
-    }
-    status_line[0] = 0;
-    memset(qlen, 0, sizeof qlen);
-    if (pending_done) {
-        apply_done(pending_done, pending_done_len);
-        free(pending_done);
-        pending_done = NULL;
-    }
+    /* nothing to wait for: the orders arrive while both play */
+    (void)0;
 }
 
 /* 0237:0285, AX = 1 << civ before "test [6B0A], ax": the joining player's
@@ -596,6 +575,11 @@ void hook_mp_civ_filter(void)
 void hook_mp_civ_done(void)
 {
     int civ = (int16_t)RW(SS, (uint16_t)(BP - 6));
+    if (state == MP_GAME_HOST && civ == remote_civ) {
+        memset(qlen, 0, sizeof qlen);   /* orders not used this turn are void */
+        memset(qpos, 0, sizeof qpos);
+        return;
+    }
     if (!mp_in_game() || civ != (int)HUMAN)
         return;
     in_phase = 0;
