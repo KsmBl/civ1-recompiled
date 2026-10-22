@@ -63,6 +63,8 @@ static uint64_t turn_start_us;
 static int turn_ms_mp = 3000;
 static int turn_end;                /* host: sent / peer: received */
 static int last_turn_end = -1;      /* peer: latest turn the host ended */
+static int clock_started;           /* host: the turn clock runs */
+static int remote_deferred;         /* host: the other player's civ moves after ours */
 static int in_phase;                /* our own civilization is moving */
 static uint64_t last_idle_us, last_enter_us, last_orders_us;
 static int auto_start;              /* peer: answer the new game questions */
@@ -507,7 +509,7 @@ static void frame(void)
         if (!bios_key_peek(&k))
             bios_key_push(KEY_ENTER);   /* new game questions: defaults */
     }
-    if (state == MP_GAME_HOST && turn_no >= 0 && !turn_end &&
+    if (state == MP_GAME_HOST && turn_no >= 0 && !turn_end && clock_started &&
         now - turn_start_us >= (uint64_t)turn_ms_mp * 1000) {
         turn_end = 1;
         uint8_t b[2] = {(uint8_t)turn_no, (uint8_t)(turn_no >> 8)};
@@ -581,6 +583,10 @@ int mp_turn_secs10(void)
 void mp_note_idle(void)
 {
     last_idle_us = now_us();
+    if (state == MP_GAME_HOST && !clock_started) {
+        clock_started = 1;              /* the host can give orders: the turn runs */
+        turn_start_us = last_idle_us;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -615,6 +621,9 @@ void hook_mp_turn_start(void)
 {
     if (state == MP_GAME_HOST) {
         if (remote_civ < 0) {
+            const char *hc = getenv("CIV_MP_TEST_HOSTCIV");
+            if (hc && *hc)                          /* test: host plays another civ */
+                WW(DS, 0xe710, (uint16_t)atoi(hc));
             int alive = GW(0x6b0a);
             for (int c = 1; c < 8; c++)
                 if (c != (int)HUMAN && (alive & (1 << c))) {
@@ -632,6 +641,7 @@ void hook_mp_turn_start(void)
             }
         }
         turn_no = (int16_t)GW(0x90f2);
+        clock_started = 0;
         WB(DS, 0x19c0, GB(0x19c0) & ~1);   /* no Instant Advice pop-ups */
         apply_rates();
         DBG("host turn %d starts", turn_no);
@@ -663,11 +673,8 @@ void hook_mp_turn_start(void)
 }
 
 /* 0237:0151, a civilization's part of the turn starts, [BP-6] = civ */
-void hook_mp_civ_start(void)
+static void remote_civ_start(void)
 {
-    int civ = (int16_t)RW(SS, (uint16_t)(BP - 6));
-    if (state != MP_GAME_HOST || civ != remote_civ)
-        return;
     apply_rates();
     /* the other player's last orders of this turn are under way (the turn
        ended on both PCs at the same time): they are used in this turn.
@@ -679,6 +686,37 @@ void hook_mp_civ_start(void)
         wait_frame();
     DBG("orders of turn %d %s after %llu ms", turn_no, final_turn == turn_no ? "complete" :
         remote_busy ? "(player busy)" : "(timeout)", (unsigned long long)(now_us() - t0) / 1000);
+}
+
+/* 0237:0151, a civilization's part of the turn starts, [BP-6] = civ */
+void hook_mp_civ_start(void)
+{
+    int civ = (int16_t)RW(SS, (uint16_t)(BP - 6));
+    if (state == MP_GAME_HOST && civ == remote_civ)
+        remote_civ_start();
+}
+
+/* host: the other player's civilization comes before ours in the turn
+   order.  Its orders are given while we play, so it moves after us: the
+   body of the civilization loop of f_0237_0094 (0151-0239) for it. */
+static void run_remote_civ(void)
+{
+    int civ = remote_civ;
+    cpu_t saved = cpu;
+    remote_civ_start();
+    if (GW(0xee80) == 0)
+        call_lifted(0x0ad5, f_0ad5_0008, 1, civ);       /* cities */
+    if ((int16_t)GW((uint16_t)(0xc0f6 + 2 * civ)) > 30000)
+        WW(DS, (uint16_t)(0xc0f6 + 2 * civ), 30000);
+    call_lifted(0x14f6, f_14f6_000c, 1, civ);
+    call_lifted(0x15da, f_15da_000c, 1, civ);
+    call_lifted(0x15da, f_15da_3452, 1, civ);
+    call_lifted(0x0402, f_0402_000a, 1, civ);           /* units */
+    WW(DS, 0xee80, 0);
+    memset(qlen, 0, sizeof qlen);
+    memset(qpos, 0, sizeof qpos);
+    cpu = saved;
+    DBG("civ %d moved after the host", civ);
 }
 
 /* 0ad5:165f in f_0ad5_1569(civ): a computer player is given advance
@@ -708,11 +746,17 @@ void hook_mp_research(void)
 }
 
 /* 0237:0285, AX = 1 << civ before "test [6B0A], ax": the joining player's
-   game moves only its own civilization */
+   game moves only its own civilization; the host lets the other player's
+   civilization wait until its own has moved (run_remote_civ) */
 void hook_mp_civ_filter(void)
 {
     if (state == MP_GAME_PEER && AX != (uint16_t)(1u << HUMAN))
         AX = 0;
+    if (state == MP_GAME_HOST && remote_civ >= 0 && remote_civ < (int)HUMAN &&
+        AX == (uint16_t)(1u << remote_civ) && (GW(0x6b0a) & AX)) {
+        remote_deferred = 1;
+        AX = 0;
+    }
 }
 
 /* 0237:0239, after a civilization's units moved, [BP-6] = civ */
@@ -728,6 +772,10 @@ void hook_mp_civ_done(void)
         return;
     in_phase = 0;
     DBG("civ %d done", civ);
+    if (state == MP_GAME_HOST && remote_deferred) {
+        remote_deferred = 0;
+        run_remote_civ();
+    }
     if (state == MP_GAME_PEER)
         send_done(1);
 }

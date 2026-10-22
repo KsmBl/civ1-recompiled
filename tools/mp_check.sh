@@ -9,7 +9,7 @@ cp -r "$here/build/game" "$W/host"; cp -r "$here/build/game" "$W/join"
 sed "s#@OUT@/#$W/#" "$here/tests/scripts/mp_host.txt" > "$W/host.txt"
 sed "s#@OUT@/#$W/#" "$here/tests/scripts/mp_join.txt" > "$W/join.txt"
 export SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy CIV_MPDEBUG=1
-(cd "$W/host" && timeout 150 "$here/civ" --setup --script "$W/host.txt" > "$W/host.log" 2>&1) &
+(cd "$W/host" && CIV_MP_TEST_HOSTCIV=$HOSTCIV timeout 150 "$here/civ" --setup --script "$W/host.txt" > "$W/host.log" 2>&1) &
 sleep 2
 (cd "$W/join" && timeout 150 "$here/civ" --setup --script "$W/join.txt" > "$W/join.log" 2>&1) &
 wait

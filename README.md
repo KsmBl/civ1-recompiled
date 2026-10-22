@@ -180,6 +180,7 @@ use `tools/patches.txt`.
     tools/widestore_check.sh       # wide map storage at width 80 vs the original
                                    # layout: game state must be the same
     tools/mp_check.sh              # multiplayer: host + joining game on one PC
+    HOSTCIV=3 tools/mp_check.sh    # same test, host plays civ 3
     CIV_GFX=shadow  # native graphics driver vs original, per call
 
 Test runs use a copy of the game in `build/game` (they save games).
