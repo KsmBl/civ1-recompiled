@@ -83,14 +83,14 @@ their 320x200 layout and are shown centred.
 
   How it works: the host's game is the real one.  At every turn start it
   sends the game state (the game's own save data plus the map) to the other
-  PC, whose player keeps playing on it; the orders given there (unit keys,
-  goto targets, city builds, gold settings) are sent to the host twice a
-  second and carried out when that civilization moves on the host.  Nobody
-  waits for anybody: the joining player's turn simply ends when the host's
-  next turn begins, and orders that arrive late are used in the next turn.
-  The joining player sees the final results of their moves (and the other
-  civilizations' moves) turn by turn.  Diplomacy, taxes and research of the
-  joining player's civilization are still decided by the computer.
+  PC, whose player plays on it at the same time.  The orders given there
+  (unit keys, goto targets, city builds, gold settings, research goal) are
+  sent to the host twice a second.  When the host's turn clock runs out,
+  the units on both PCs are done; the other PC sends its last orders at
+  once and the host carries them out in the same turn, so what was done
+  there stays.  You stay on the map (or in your city screen) until the next
+  state arrives.  Diplomacy and taxes of the joining player's civilization
+  are still decided by the computer.
 * **Wider worlds** — `--mapwidth 160` (or `mapwidth = 160` in `civ.cfg`)
   makes the world up to twice as wide; it still wraps east-west.  New
   random worlds use the whole width (land amount scales with it), AI

@@ -4278,6 +4278,7 @@ L_165c:
     goto L_1576;
 L_165f:
     /* 165f: cmp word ptr [bp - 0x3c], -1 */
+    hook_mp_research();
     /* 1663: je 0x1684 */
     if ((uint16_t)RW(SS, BP - 0x3c) == (uint16_t)0xffff) goto L_1684;
 L_1665:

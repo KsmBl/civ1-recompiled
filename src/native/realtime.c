@@ -80,10 +80,10 @@ int realtime_turn_secs10(void)
     return turn_ms() / 100;
 }
 
-static int turn_due(void)
+static int turn_due(int unit)
 {
     if (mp_in_game())
-        return mp_turn_due();       /* the host's clock, never paused */
+        return mp_turn_due(unit);   /* the host's clock, never paused */
     return !paused && elapsed_us >= (uint64_t)turn_ms() * 1000;
 }
 
@@ -105,14 +105,14 @@ void realtime_idle(void)
         elapsed_us += now - last_us;
     }
     last_us = now;
-    if (!turn_due())
+    int unit = (int16_t)RW(SS, (uint16_t)(BP + 8));   /* f_0860_0aa8(player, unit) */
+    if (!turn_due(unit))
         return;
     uint16_t pending;
     if (bios_key_peek(&pending) && now - last_push_us < 1000000)
         return;                     /* the last push is not read yet */
     last_push_us = now;
     int player = (int16_t)GW(0xe710);
-    int unit = (int16_t)RW(SS, (uint16_t)(BP + 8));   /* f_0860_0aa8(player, unit) */
     if (unit == END_OF_TURN) {
         while (bios_key_peek(&pending))
             bios_key_wait();        /* keys typed into "End of Turn" are void */
@@ -131,6 +131,7 @@ void realtime_idle(void)
    waits there, for the clock. */
 void hook_realtime_end_of_turn(void)
 {
+    mp_units_done();
     if (cfg.realtime || mp_in_game())
         WW(SS, (uint16_t)(BP - 6), 0);
 }

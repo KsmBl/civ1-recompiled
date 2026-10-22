@@ -4,7 +4,11 @@
 #include "funcs.h"
 #include "wide.h"
 
-/* DGROUP variables of the game */
+/* the game's data segment (DGROUP); DS has this value inside game code,
+   but not in interrupt handlers or the frame tick */
+#define DGROUP ((uint16_t)(LOADSEG + 0x2A1B))
+
+/* DGROUP variables of the game (via DS) */
 #define GW(off) RW(DS, (off))
 #define GB(off) RB(DS, (off))
 #define VIEW_X ((int16_t)GW(0xe3ec))

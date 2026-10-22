@@ -148,7 +148,7 @@ void hook_city_production(void)
     AX = 0;
 }
 
-int native_key_filter(uint16_t key)
+static int key_filter(uint16_t key)
 {
     uint8_t ascii = (uint8_t)key;
     if (mp_key(key))
@@ -162,7 +162,7 @@ int native_key_filter(uint16_t key)
     return 0;
 }
 
-int native_mouse_filter(int button, int x, int y)
+static int mouse_filter(int button, int x, int y)
 {
     if (screen_city < 0 && button == 0 && realtime_click(x, y))
         return 1;
@@ -194,4 +194,24 @@ void native_load_state(void *fp)
     if (fread(cap, sizeof cap, 1, f) != 1)
         memset(cap, 0, sizeof cap);
     autowork_load(f);
+}
+
+/* The filters run in the keyboard interrupt / mouse event, where DS is
+   whatever the interrupted code had: game data is reached through DGROUP. */
+int native_key_filter(uint16_t key)
+{
+    uint16_t ds = DS;
+    DS = DGROUP;
+    int r = key_filter(key);
+    DS = ds;
+    return r;
+}
+
+int native_mouse_filter(int button, int x, int y)
+{
+    uint16_t ds = DS;
+    DS = DGROUP;
+    int r = mouse_filter(button, x, y);
+    DS = ds;
+    return r;
 }

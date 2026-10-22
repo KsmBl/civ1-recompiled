@@ -22,7 +22,9 @@ void net_close(void);
 
 /* mp.c */
 int mp_in_game(void);       /* a multiplayer game is running */
-int mp_turn_due(void);      /* the clock says this turn is over */
+int mp_turn_due(int unit);  /* the clock says this turn is over; unit 0x80 =
+                               the End of Turn wait */
+void mp_units_done(void);   /* all units of the human player moved */
 int mp_progress(void);      /* 0..1000 of the turn used */
 int mp_turn_secs10(void);
 void mp_note_idle(void);    /* the game waits for orders on the map */

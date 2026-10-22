@@ -72,6 +72,11 @@ static struct cmd cmds[512];
 static int ncmds;
 static int auto_key;                /* the key was made by the game, not the player */
 
+static int final_turn = -1;          /* host: last turn with all orders in */
+static int remote_goal = -1;        /* host: the joining player's research */
+static uint8_t base_build[128];     /* peer: builds as the host sent them */
+static int16_t intent_build[128];   /* peer: builds chosen here, -1 none */
+
 /* host: orders of the joining player, per unit */
 static uint16_t queue[128][16];
 static int qlen[128], qpos[128];
@@ -224,6 +229,12 @@ static int load_snap(void)
     fwrite(snap_buf + sizeof h, 1, h.sve_len, f);
     fclose(f);
     int16_t vx = (int16_t)GW(0xe3ec), vy = (int16_t)GW(0xe67e);
+    uint16_t goal = GW(0x19be);         /* our research goal (one global) */
+    if (my_civ >= 0)
+        for (int c = 0; c < 128; c++)   /* builds changed here since the last state */
+            if (GB(CITY(c) + 6) != 0xff && GB(CITY(c) + 11) == my_civ &&
+                GB(CITY(c) + 9) != base_build[c])
+                intent_build[c] = GB(CITY(c) + 9);
     game_data_io(1);
     const uint8_t *p = snap_buf + sizeof h + h.sve_len;
     int pw = page2_w();
@@ -231,8 +242,24 @@ static int load_snap(void)
         for (int x = 0; x < h.pagew; x++, p++)
             if (x < pw)
                 page2_put(x, y, *p);
+    int first = my_civ < 0;
     my_civ = h.civ;
     turn_ms_mp = (int)h.turn_ms;
+    if (!first)
+        WW(DS, 0x19be, goal);
+    for (int c = 0; c < 128; c++) {
+        uint16_t r = CITY(c);
+        int ours = GB(r + 6) != 0xff && GB(r + 11) == my_civ;
+        if (!ours || first)
+            intent_build[c] = -1;
+        else if (intent_build[c] >= 0) {
+            if (GB(r + 9) == (uint8_t)intent_build[c])
+                intent_build[c] = -1;    /* the host has it */
+        }
+        base_build[c] = GB(r + 9);
+        if (ours && intent_build[c] >= 0)
+            WB(DS, (uint16_t)(r + 9), (uint8_t)intent_build[c]);
+    }
     WW(DS, 0xe710, (uint16_t)my_civ);
     WW(DS, 0x7eb6, (uint16_t)(1u << my_civ));
     if (turn_no < 0) {
@@ -263,7 +290,7 @@ static void send_hello(void)
     net_send(MSG_HELLO, b, (uint32_t)n + 1);
 }
 
-static void send_done(void)
+static void send_done(int final)
 {
     uint8_t b[4096];
     int n = 0;
@@ -298,6 +325,9 @@ static void send_done(void)
         b[n++] = GB(r + 7);
         b[nu]++;
     }
+    b[n++] = (uint8_t)final;            /* the units of this turn are done */
+    b[n++] = GB(0x19be);                /* research goal */
+    b[n++] = GB(0x19bf);
     net_send(MSG_DONE, b, (uint32_t)n);
     ncmds = 0;
 }
@@ -334,6 +364,11 @@ static void apply_done(const uint8_t *b, uint32_t l)
             WB(DS, (uint16_t)(r + 6), b[n + 1]);
             WB(DS, (uint16_t)(r + 7), b[n + 2]);
         }
+    }
+    if (n + 3 <= l) {
+        if (b[n])
+            final_turn = turn;
+        remote_goal = (int16_t)(b[n + 1] | b[n + 2] << 8);
     }
     if (nc)
         DBG("orders from turn %d: %d keys", turn, nc);
@@ -391,10 +426,22 @@ static void handle(int type, uint8_t *d, uint32_t l)
 /* ------------------------------------------------------------------ */
 /* per frame (from the runtime's frame tick) */
 
+static void frame(void);
+
+/* every frame, from the runtime's frame tick: DS is that of the code that
+   happens to run, game data is reached through DGROUP */
 void native_frame(void)
 {
     if (state == MP_OFF)
         return;
+    uint16_t ds = DS;
+    DS = DGROUP;
+    frame();
+    DS = ds;
+}
+
+static void frame(void)
+{
     net_poll();
     int type;
     uint8_t *d;
@@ -420,12 +467,14 @@ void native_frame(void)
     if (state == MP_GAME_HOST && turn_no >= 0 && !turn_end &&
         now - turn_start_us >= (uint64_t)turn_ms_mp * 1000) {
         turn_end = 1;
+        uint8_t b[2] = {(uint8_t)turn_no, (uint8_t)(turn_no >> 8)};
+        net_send(MSG_TURN_END, b, 2);
         DBG("host turn %d over", turn_no);
     }
     /* the joining player's orders go out as they are given */
     if (state == MP_GAME_PEER && in_phase && now - last_orders_us > 500000) {
         last_orders_us = now;
-        send_done();
+        send_done(0);
     }
     if ((state == MP_GAME_HOST || state == MP_GAME_PEER) && !net_connected() && turn_no >= 0) {
         ovl_msg("Multiplayer: the other player left");
@@ -456,11 +505,23 @@ int mp_in_game(void)
     return state == MP_GAME_HOST || state == MP_GAME_PEER;
 }
 
-int mp_turn_due(void)
+int mp_turn_due(int unit)
 {
-    /* the host's clock; the joining player's turn ends when the host's
-       next turn has begun (its state arrived) */
-    return state == MP_GAME_PEER ? snap_buf != NULL : turn_end;
+    /* the host's clock ends the units' moves on both PCs; the joining
+       player then stays on the map ("End of Turn") until the host's next
+       turn has begun (its state arrived) */
+    if (state == MP_GAME_PEER && unit >= 128)
+        return snap_buf != NULL;
+    return turn_end;
+}
+
+/* hook_realtime_end_of_turn: the human's units are all done */
+void mp_units_done(void)
+{
+    if (state == MP_GAME_PEER && in_phase) {
+        send_done(1);               /* the host uses them this turn */
+        DBG("units done, turn %d", turn_no);
+    }
 }
 
 int mp_progress(void)
@@ -518,6 +579,14 @@ void hook_mp_turn_start(void)
                     break;
                 }
             ovl_msg("%s plays civilization %d", peer_name, remote_civ);
+            /* the computer's plans for its units are void now */
+            for (int u = 0; remote_civ > 0 && u < 128; u++) {
+                uint16_t r = UNIT(remote_civ, u);
+                if (GB(r + 3) == 0xff)
+                    continue;
+                WB(DS, (uint16_t)(r + 6), 0xff);    /* goto */
+                WB(DS, r, GB(r) & ~0xc2);           /* settler work */
+            }
         }
         turn_no = (int16_t)GW(0x90f2);
         WB(DS, 0x19c0, GB(0x19c0) & ~1);   /* no Instant Advice pop-ups */
@@ -549,8 +618,41 @@ void hook_mp_turn_start(void)
 /* 0237:0151, a civilization's part of the turn starts, [BP-6] = civ */
 void hook_mp_civ_start(void)
 {
-    /* nothing to wait for: the orders arrive while both play */
-    (void)0;
+    int civ = (int16_t)RW(SS, (uint16_t)(BP - 6));
+    if (state != MP_GAME_HOST || civ != remote_civ)
+        return;
+    /* the other player's last orders of this turn are under way (the turn
+       ended on both PCs at the same time): give them a moment, without
+       showing anything; a player in a city screen is not waited for */
+    uint64_t until = now_us() + 1500000;
+    while (state == MP_GAME_HOST && final_turn != turn_no && now_us() < until)
+        wait_frame();
+}
+
+/* 0ad5:165f in f_0ad5_1569(civ): a computer player is given advance
+   [BP-0x14].  For the joining player's civilization: the advance chosen on
+   the other PC, if it can be researched now. */
+static int has_advance(int civ, int t)
+{
+    if (t < 0 || t >= 0x48)
+        return t < 0;               /* "no prerequisite" */
+    call_lifted(0x0ad5, f_0ad5_2293, 2, civ, t);
+    return AX != 0;
+}
+
+void hook_mp_research(void)
+{
+    int civ = (int16_t)RW(SS, (uint16_t)(BP + 6)), t = remote_goal;
+    if (state != MP_GAME_HOST || civ != remote_civ || t < 0 || t >= 0x48)
+        return;
+    int8_t p1 = (int8_t)GB((uint16_t)(0x4ee + 0x16 * t));
+    int8_t p2 = (int8_t)GB((uint16_t)(0x4ef + 0x16 * t));
+    if (has_advance(civ, t) || !has_advance(civ, p1) || !has_advance(civ, p2))
+        return;
+    WW(SS, (uint16_t)(BP - 0x14), (uint16_t)t);
+    if ((int16_t)RW(SS, (uint16_t)(BP - 0x3c)) == -1)
+        WW(SS, (uint16_t)(BP - 0x3c), 0);
+    DBG("civ %d researches %d (chosen on the other PC)", civ, t);
 }
 
 /* 0237:0285, AX = 1 << civ before "test [6B0A], ax": the joining player's
@@ -575,7 +677,7 @@ void hook_mp_civ_done(void)
     in_phase = 0;
     DBG("civ %d done", civ);
     if (state == MP_GAME_PEER)
-        send_done();
+        send_done(1);
 }
 
 /* 0402:05c5: the game made the order (settler work, goto) */

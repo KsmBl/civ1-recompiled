@@ -27,6 +27,7 @@ void hook_mp_civ_start(void);
 void hook_mp_menu_choice(void);
 void hook_mp_menu_text(void);
 void hook_mp_record(void);
+void hook_mp_research(void);
 void hook_mp_turn_start(void);
 void hook_realtime_end_of_turn(void);
 void hook_unit_await(void);
