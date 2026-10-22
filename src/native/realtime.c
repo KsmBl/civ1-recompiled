@@ -108,12 +108,8 @@ void realtime_idle(void)
     if (!turn_due())
         return;
     uint16_t pending;
-    if (bios_key_peek(&pending)) {
-        if (pending == 0x011B)
-            bios_key_wait();        /* a multiplayer "close the dialog" Esc */
-        else if (now - last_push_us < 1000000)
-            return;                 /* the last push is not read yet */
-    }
+    if (bios_key_peek(&pending) && now - last_push_us < 1000000)
+        return;                     /* the last push is not read yet */
     last_push_us = now;
     int player = (int16_t)GW(0xe710);
     int unit = (int16_t)RW(SS, (uint16_t)(BP + 8));   /* f_0860_0aa8(player, unit) */

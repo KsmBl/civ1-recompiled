@@ -76,8 +76,9 @@ their 320x200 layout and are shown centred.
   found; **Enter** joins.  When the other player is in, the host presses
   **Enter** and starts a new game as usual; the joining player gets one of
   the other civilizations.  Both play at the same time; the turn clock (the
-  host's `turnsecs`) never stops — open dialogs and city screens are closed
-  when a turn is over.  Ports: TCP 28400, UDP 28401.  Both need the same
+  host's `turnsecs`) keeps running; nothing is closed for you: a turn that
+  is due ends when you are back on the map (while the host has a city
+  screen or dialog open, the host's game waits there).  Ports: TCP 28400, UDP 28401.  Both need the same
   `mapwidth`.
 
   How it works: the host's game is the real one.  At every turn start it

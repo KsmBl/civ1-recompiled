@@ -8,8 +8,9 @@
  * Every turn:
  *   host  turn start: sends the game state (the game's own save data from
  *                     ovl11_09e4 plus the map page) -- SNAP
- *   both  play their own civilization for the turn time; the clock never
- *         stops (dialogs and city screens are closed when the turn is due)
+ *   both  play their own civilization for the turn time; a turn that is
+ *         due ends as soon as the player is back on the map (dialogs and
+ *         city screens are never closed for the player)
  *   host  turn time over: TURN_END; the host's own units are done
  *   peer  on TURN_END: ends its turn, sends the orders it gave (unit keys
  *         in order, goto targets, city builds and gold settings) -- DONE
@@ -44,7 +45,6 @@
 #define MENU_TEXT 0xc926
 #define SNAP_FILE "MPSNAP.SVE"
 #define KEY_ENTER 0x1C0D
-#define KEY_ESC 0x011B
 
 enum { MP_OFF, MP_LOBBY, MP_HOSTING, MP_SCANNING, MP_JOINED, MP_GAME_HOST, MP_GAME_PEER };
 static int state = MP_OFF;
@@ -63,7 +63,7 @@ static uint64_t turn_start_us;
 static int turn_ms_mp = 3000;
 static int turn_end;                /* host: sent / peer: received */
 static int in_phase;                /* our own civilization is moving */
-static uint64_t last_idle_us, last_esc_us, last_enter_us, last_orders_us;
+static uint64_t last_idle_us, last_enter_us, last_orders_us;
 static int auto_start;              /* peer: answer the new game questions */
 
 /* peer: orders given this turn */
@@ -426,16 +426,6 @@ void native_frame(void)
     if (state == MP_GAME_PEER && in_phase && now - last_orders_us > 500000) {
         last_orders_us = now;
         send_done();
-    }
-    /* the clock never stops: close dialogs and screens when the turn is due */
-    if ((state == MP_GAME_HOST || state == MP_GAME_PEER) && in_phase && mp_turn_due() &&
-        now - last_idle_us > 2500000 && now - last_esc_us > 600000) {
-        uint16_t k;
-        last_esc_us = now;
-        if (!bios_key_peek(&k)) {
-            DBG("esc (idle %llu ms ago)", (unsigned long long)(now - last_idle_us) / 1000);
-            bios_key_push(KEY_ESC);
-        }
     }
     if ((state == MP_GAME_HOST || state == MP_GAME_PEER) && !net_connected() && turn_no >= 0) {
         ovl_msg("Multiplayer: the other player left");
