@@ -1,0 +1,5 @@
+-std=gnu11
+-Iruntime
+-Isrc/gen
+-I/usr/include/SDL2
+-D_REENTRANT

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Python with capstone + unicorn (python3 -m venv tools/.venv && tools/.venv/bin/pip install capstone unicorn)
+exec "$(dirname "$0")/.venv/bin/python" "$@"

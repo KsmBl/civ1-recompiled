@@ -1,0 +1,18 @@
+# build output
+/build/
+/civ
+/civ_watch
+/civ.exe
+*.o
+# downloaded toolchains and the Python virtualenv
+/toolchain/
+/tools/.venv/
+__pycache__/
+# never commit the original game files or saves
+*.PIC
+*.PAL
+*.SVE
+*.MAP
+*.NAT
+*.WMP
+*.CVL

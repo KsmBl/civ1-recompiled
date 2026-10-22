@@ -1,0 +1,5 @@
+# Extra code entry points that static analysis cannot find (reached only
+# through interrupt vectors or computed pointers).  Format: MODULE SEG:OFF
+root 0000:0199    # timer interrupt handler (installed via INT 21h/25h)
+isound 0000:0623  # IBM sound driver: interrupt / callback entry
+isound 0000:015e

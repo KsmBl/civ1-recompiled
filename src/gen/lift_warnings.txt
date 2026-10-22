@@ -1,0 +1,48 @@
+unresolved indirect jmp at tgraphic_0000_1ff6 207e: jmp si
+unresolved indirect jmp at egraphic_0000_25aa 2632: jmp si
+unresolved indirect jmp at mgraphic_0000_1328 13b0: jmp si
+unresolved indirect jmp at f_0000_130a 1312: jmp bp
+unsupported insn in rsound_0000_136b at 13a6: push 0x2074
+unsupported insn in rsound_0000_136b at 1431: inc word ptr fs:[di]
+unsupported insn in rsound_0000_0ce7 at 0ceb: fiadd dword ptr [bp + di]
+unsupported insn in isound_0000_0588 at 05a4: fld dword ptr [0x6e7]
+unsupported insn in isound_0000_04a5 at 04b6: fmul qword ptr [bx]
+unsupported insn in tgraphic_0000_2090 at 2096: push 0x2074
+unsupported insn in tgraphic_0000_2090 at 2325: add byte ptr fs:[di], al
+unsupported insn in tgraphic_0000_2090 at 24ab: and byte ptr [di + 0x65], ch
+unsupported insn in tgraphic_0000_2090 at 24d4: arpl word ptr [bx + si + 0x69], bp
+unsupported insn in tgraphic_0000_2090 at 24c7: and byte ptr fs:[bx + 0x6e], ch
+unsupported insn in tgraphic_0000_2090 at 2345: add byte ptr [bx], 0x80
+unsupported insn in egraphic_0000_104c at 1059: sldt word ptr [bx + si]
+unsupported insn in ovl16_0001 at 0003: ficomp word ptr [di]
+unsupported insn in f_0402_1b02 at 1b17: mov ebx, cr3
+unsupported insn in f_0ad5_0ead at 0ec6: or al, 0x59
+jump table without bound at rsound_0000_07e1 07f1: jmp word ptr cs:[bx + 0x7e1]
+unsupported insn in rsound_0000_0812 at 849d: arpl cx, di
+patched insn tgraphic_0000_0ca5 0d49: xor byte ptr es:[di], dl
+patched insn tgraphic_0000_0ca5 0da7: xor byte ptr es:[di], dl
+patched insn tgraphic_0000_1a28 1bbd: cmc
+patched insn tgraphic_0000_1a28 1bbe: adc di, 0
+patched insn tgraphic_0000_1a28 1bdf: cmc
+patched insn tgraphic_0000_1a28 1be0: adc di, 0
+patched insn egraphic_0000_1f09 20ca: ror bh, 1
+patched insn egraphic_0000_1f09 20cc: adc di, 0
+patched insn egraphic_0000_1f09 20e1: ror bh, 1
+patched insn egraphic_0000_1f09 20e3: adc di, 0
+patched insn mgraphic_0000_0e00 0f46: cld
+patched insn mgraphic_0000_0e00 0f57: inc di
+patched insn mgraphic_0000_0f63 0f46: cld
+patched insn mgraphic_0000_0f63 0f57: inc di
+patched insn mgraphic_0000_10a8 10ac: rol byte ptr [si], cl
+patched insn egraphic_0000_20f5 20ca: ror bh, 1
+patched insn egraphic_0000_20f5 20cc: adc di, 0
+patched insn egraphic_0000_20f5 20e1: ror bh, 1
+patched insn egraphic_0000_20f5 20e3: adc di, 0
+patched insn egraphic_0000_219c 21ac: rol byte ptr [si], cl
+patched insn tgraphic_0000_0e6e 0e6e: rol byte ptr [si], cl
+patched insn tgraphic_0000_1bf8 1bbd: cmc
+patched insn tgraphic_0000_1bf8 1bbe: adc di, 0
+patched insn tgraphic_0000_1bf8 1bdf: cmc
+patched insn tgraphic_0000_1bf8 1be0: adc di, 0
+patched insn tgraphic_0000_1c34 1c38: rol byte ptr [si], cl
+patched insn tgraphic_0000_2090 2496: aas

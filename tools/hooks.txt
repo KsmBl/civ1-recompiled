@@ -1,0 +1,41 @@
+# Native C functions called right before an instruction (src/native/*.c).
+# Format: MODULE SEG:OFF FUNCTION
+
+# city turn: add this turn's production to the shield stock
+root 0d07:1520 hook_city_production
+# unit orders: key just read from the keyboard (0 = none)
+root 0402:0677 hook_unit_order_key
+# unit orders: the active unit is about to wait for a key
+root 0402:0645 hook_unit_await
+# map: the active unit blinks while the game waits for orders
+root 0860:0caa hook_map_idle
+# save / load: the explored table (DS:7FF8) lives in VISSEG on wide maps
+ovl11 2388:0c70 hook_vis_io_begin
+ovl11 2388:0c74 hook_vis_io_end
+root 1b05:01e1 hook_minimap_width
+root 1b05:032b hook_minimap_city
+root 0860:0b77 hook_minimap_unit
+ovl07 2388:0686 hook_gen_backup
+ovl07 2388:07f4 hook_gen_restore
+ovl07 2388:0596 hook_gen_clear
+ovl11 2388:0916 hook_map_saved
+ovl11 2388:08ea hook_map_loaded
+root 1e4a:06b6 hook_blk_clear_path
+ovl07 2388:115d hook_blk_clear_land
+ovl07 2388:13fa hook_blk_clear_sea
+ovl11 2388:0d84 hook_blk_io_begin
+ovl11 2388:0d87 hook_blk_io_end
+ovl07 2388:0051 hook_earth_loaded
+ovl05 2388:0c3f hook_earth_start
+ovl11 2388:08b3 hook_game_loaded
+root 0ad5:1433 hook_build_menu
+root 0ad5:1459 hook_build_choice
+root 0402:3e31 hook_realtime_end_of_turn
+root 01a7:04a6 hook_mp_menu_text
+root 01a7:04bd hook_mp_menu_choice
+root 0237:009c hook_mp_turn_start
+root 0237:0151 hook_mp_civ_start
+root 0237:0285 hook_mp_civ_filter
+root 0237:0239 hook_mp_civ_done
+root 0402:05c5 hook_mp_auto_order
+root 0402:0ced hook_mp_record
